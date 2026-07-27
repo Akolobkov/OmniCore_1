@@ -4,6 +4,7 @@ import sys
 import inspect
 def include_tool(tool_name: str) -> str:
     """Include a tool {tool_name} from "created_tools" directory
+    IMPORTANT: DO NOT INCLUDE '.py' IN 'tool_name'!!!
     Args:
         tool_name (str): name of the tool (not path to it)
     """

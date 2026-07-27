@@ -8,6 +8,7 @@ from core_tools.write_to_file import write_to_file
 from core_tools.create_file import create_file
 from core_tools.include_tool import include_tool
 from core_tools.list_tools import list_tools
+from core_tools.search_web import search_web
 # ==============================================================================
 # 1. STATE SCHEMA
 # ==============================================================================
@@ -29,7 +30,7 @@ class AgentState(TypedDict):
 # Tools are Python functions. The LLM reads their docstrings to understand
 # what they do and when to use them.
 
-tools = [write_to_file, create_file, include_tool, list_tools]
+tools = [write_to_file, create_file, include_tool, list_tools, search_web]
 
 # ==============================================================================
 # 3. NODES
@@ -54,18 +55,44 @@ def agent_node(state: AgentState) -> dict:
     # Add a system message to guide behavior
     # Explicitly instruct to call ONE tool at a time (local model limitation)
     system_msg = SystemMessage(
-        content="You are a helpful tool creation assistant."
-                "When user gives yo a task, you need to:"
-                "1. ALWAYS search for existing tools using 'list_tools'. Include the tools using 'include tools' you need"
-                "2. If you need more tools, create python files using 'create_file' tool in 'created_tools' directory."
-                "AFTER creating tool, MUST use 'include_tool' to make it available. ALWAYS include the tools you use!!!"
-                "3. Execute the user's task"
-                "IMPORTANT: NEVER WRITE EXAMPLE USAGE IN THE TOOL FILE!!!"
-                "IMPORTANT: NEVER WRITE 'returns' in function docstring!!!"
-                "Name the file and function the same way!"
-                "DO NOT create placeholders: write actual tools for user. If the tool requires external libraries, assume they are installed."
-                "CRITICAL: When you create multiple tools, you MUST include EACH tool using 'include_tool' before using them."
-                "Use all necessary tools in sequence or simultaneously (if applicable) to complete all steps required by the request."
+        content="""You are a helpful tool creation assistant.
+                **MANDATORY WORKFLOW - FOLLOW EXACTLY:**
+STEP 0: ANALYZE THE TASK
+- You can use search_web if needed
+
+STEP 1: SEARCH
+- ALWAYS call 'list_tools' first to check existing tools
+IF YOU WANT TO USE EXISTING TOOL, ALWAYS INCLUDE IT using include_tool!!!
+STEP 2: CREATE (if needed)
+- Create Python files using 'create_file' in 'created_tools' directory
+- File name MUST match function name
+- Include complete docstring with ALL arguments
+- NO example usage in file
+- NO 'returns' in docstring
+
+STEP 3: INCLUDE (CRITICAL - DO NOT SKIP!)
+- **IMMEDIATELY after EACH 'create_file'** OR WHEN YOU WANT TO USE EXISTING TOOL, call 'include_tool' for that tool
+- This is MANDATORY, not optional
+- If you create 3 tools, you MUST call 'include_tool' 3 times
+
+STEP 4: EXECUTE
+- Now use all the needed tools to complete the task
+- You CAN use multiple tools to complete the task.
+- DO NOT SKIP THE TASK MID-WAY!
+- You may use any tools on this step - create files, search web if user told you to.
+
+**VALIDATION RULES:**
+- If you forget to include a tool, you will FAIL the task
+- Treat 'include_tool' as part of tool creation - they are inseparable
+- ALWAYS complete the user's full task - if he says to **save** something in a file - use your tools to do it!!!
+**REMEMBER:**
+- Create → Include → Use → Execute (in that order, never skip 'Include')
+- Multiple tools = multiple include_tool calls
+- Tool names must match tool file names!!!
+- External libraries are pre-installed
+- No placeholders - write working code
+- You need to fully complete user's task - use multiple tools in sequence if needed
+"""
     )
 
     # LLM decides what to do next
@@ -203,10 +230,7 @@ def main():
 
     try:
         result = app.invoke(
-                {"messages": [HumanMessage(content=   """Create an image upscaling tool
-                Use pillow library
-                then use the tool to upscale "deeprooms.jpg"
-                """)]},
+                {"messages": [HumanMessage(content=   """how to install numpy?""")]},
             config=config
         )
         print(f"Final answer: {result['messages'][-1].content}")
