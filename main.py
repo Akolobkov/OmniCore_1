@@ -9,6 +9,7 @@ from core_tools.create_file import create_file
 from core_tools.include_tool import include_tool
 from core_tools.list_tools import list_tools
 from core_tools.search_web import search_web
+from core_tools.read_file import read_file
 # ==============================================================================
 # 1. STATE SCHEMA
 # ==============================================================================
@@ -30,7 +31,7 @@ class AgentState(TypedDict):
 # Tools are Python functions. The LLM reads their docstrings to understand
 # what they do and when to use them.
 
-tools = [write_to_file, create_file, include_tool, list_tools, search_web]
+tools = [write_to_file, create_file, include_tool, list_tools, search_web, read_file]
 
 # ==============================================================================
 # 3. NODES
@@ -55,44 +56,48 @@ def agent_node(state: AgentState) -> dict:
     # Add a system message to guide behavior
     # Explicitly instruct to call ONE tool at a time (local model limitation)
     system_msg = SystemMessage(
-        content="""You are a helpful tool creation assistant.
-                **MANDATORY WORKFLOW - FOLLOW EXACTLY:**
-STEP 0: ANALYZE THE TASK
-- You can use search_web if needed
+        content="""You are a helpful and highly disciplined software development assistant. Your primary goal is to analyze user requests, determine the necessary tools (creation, inclusion, usage), and write functional code to fulfill the request completely.
 
-STEP 1: SEARCH
-- ALWAYS call 'list_tools' first to check existing tools
-IF YOU WANT TO USE EXISTING TOOL, ALWAYS INCLUDE IT using include_tool!!!
-STEP 2: CREATE (if needed)
-- Create Python files using 'create_file' in 'created_tools' directory
-- File name MUST match function name
-- Include complete docstring with ALL arguments
-- NO example usage in file
-- NO 'returns' in docstring
+    ==================================
+    ✨ MANDATORY WORKFLOW PROTOCOL - FOLLOW EXACLY ✨
+    ==================================
+    This protocol dictates your steps for complex tasks:
 
-STEP 3: INCLUDE (CRITICAL - DO NOT SKIP!)
-- **IMMEDIATELY after EACH 'create_file'** OR WHEN YOU WANT TO USE EXISTING TOOL, call 'include_tool' for that tool
-- This is MANDATORY, not optional
-- If you create 3 tools, you MUST call 'include_tool' 3 times
+    STEP 0: ANALYZE THE TASK
+    - Use 'search_web' first if the task requires external knowledge (e.g., current library versions, setup instructions).
 
-STEP 4: EXECUTE
-- Now use all the needed tools to complete the task
-- You CAN use multiple tools to complete the task.
-- DO NOT SKIP THE TASK MID-WAY!
-- You may use any tools on this step - create files, search web if user told you to.
+    STEP 1: INITIAL TOOL CHECK (BEST PRACTICE)
+    - To ensure you know all capabilities, ALWAYS begin by calling 'list_tools()' to check the existing tool set.
 
-**VALIDATION RULES:**
-- If you forget to include a tool, you will FAIL the task
-- Treat 'include_tool' as part of tool creation - they are inseparable
-- ALWAYS complete the user's full task - if he says to **save** something in a file - use your tools to do it!!!
-**REMEMBER:**
-- Create → Include → Use → Execute (in that order, never skip 'Include')
-- Multiple tools = multiple include_tool calls
-- Tool names must match tool file names!!!
-- External libraries are pre-installed
-- No placeholders - write working code
-- You need to fully complete user's task - use multiple tools in sequence if needed
-"""
+    STEP 2: CREATE FILES (If needed)
+    - If a new tool is required, use 'create_file' in the designated 'created_tools' directory.
+    - The file name MUST match the function name of the tool you want to create.
+    - Do not try to create one tool twice! Use write_to_file instead.
+    - Include the complete and accurate docstring detailing ALL arguments and functionality.
+    - IMPORTANT: You can import existing tools into other tools using 'import created_tools/{tool_name}'!
+    - IMPORTANT: ALL TOOLS MUST BE CREATED IN CREATED_TOOLS DIRECTORY!!!
+    Example: 'created_tools/tool.py' - RIGHT, 'tool.py' - WRONG
+    - CRITICAL: USE CORRECT FORMATS WHEN WRITING A TOOL! Example: 
+    n: The non-negative integer for which to calculate the factorial. - RIGHT
+    n (int): The non-negative integer for which to calculate the factorial. - WRONG!
+
+    STEP 3: INCLUDE TOOL (CRITICAL - DO NOT SKIP!)
+    - After SUCCESSFULLY executing a 'create_file', OR when you intend to use any tool (existing or newly created), calling 'include_tool' is **MANDATORY**.
+    - You must call 'include_tool' for *every* single piece of functionality you want the system to be aware of. If you create 3 tools, you MUST execute 'include_tool' three times before proceeding.
+
+    STEP 4: EXECUTE THE TASK
+    - Now that all necessary tools are available, use them in sequence to complete the task fully.
+    - You can and should use multiple tools (creation, web search, execution) to achieve the final result.
+    - If some tools fail, you should analyze AND rewrite them to accomplish user's task
+    ==================================
+    📜 GENERAL OPERATIONAL RULES 📜
+    -----------------------------
+    1. **Completion:** Always complete the user's full request. If they ask to "save" something, you must use your file writing tools until it is successfully saved.
+    2. **Dependencies:** Treat 'include_tool' as an inseparable part of tool creation and usage. Failing to include a tool means failure.
+    3. **Execution Order Priority:** The logical sequence remains: Analyze $\rightarrow$ (List Tools) $\rightarrow$ Create $\rightarrow$ Include $\rightarrow$ Use / Execute. Never skip the inclusion step!
+    4. **Code Quality:** All generated code must be clean, functional, and ready to run. Do not use placeholders.
+    5. **Reading and optimisation:** Use read_file tool to read the tools you use and optimize them if needed.
+    """
     )
 
     # LLM decides what to do next
@@ -141,7 +146,7 @@ def tool_node(state: AgentState) -> dict:
         except TypeError as e:
             print(f"[TOOL ERROR] Could not execute {tool_name}. Missing required arguments or incorrect types. Error: {e}")
             # Return a failure message instead of crashing
-            result = f"ERROR: Tool execution failed due to missing or incorrect argument(s). Details: {str(e)}"
+            result = f"ERROR: Tool execution failed due to missing or incorrect argument(s). Details: {str(e)}. Try to call the tool in different way or rewrite it"
 
 
         print(f"[TOOL] {tool_name}({coerced_args}) = {result}")
@@ -221,7 +226,7 @@ def create_react_agent():
 # 6. RUN THE AGENT
 # ==============================================================================
 
-def main():
+def run_agent(query):
 
 
     app = create_react_agent()
@@ -230,15 +235,21 @@ def main():
 
     try:
         result = app.invoke(
-                {"messages": [HumanMessage(content=   """how to install numpy?""")]},
+                {"messages": [HumanMessage(content=   f"{query} + DO NOT FORGET TO LIST TOOLS! INCLUDE ALL THE TOOLS YOU USE!!! If you're not sure the folder you want to write something in exists, create it instead. If some tools fail, you should analyze AND rewrite them to accomplish user's task")]},
             config=config
         )
         print(f"Final answer: {result['messages'][-1].content}")
     except Exception as e:
         print(f"ERROR in task: {e}")
-
+        result = app.invoke(
+            {"messages": [HumanMessage(
+                content=f"Caught an error {e} while completing {query}. Analyze the problem and finish the task")]},
+            config=config
+        )
+        print(f"Final answer: {result['messages'][-1].content}")
     print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":
-    main()
+    query = input("Enter query: ")
+    run_agent(query)

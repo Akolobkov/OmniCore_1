@@ -4,14 +4,14 @@ import os
 search_tool = TalorSerpTool.from_env()
 def search_web(query: str, engine: str = "google") -> str:
     """
-    Выполняет поиск в интернете через TalorData SERP API.
+    Searches through internet with TalorData SERP API.
 
     Args:
-        query (str): Поисковый запрос
-        engine (str): Поисковая система (по умолчанию "google")
+        query (str): query
+        engine (str): Searching system (default "google")
 
     Returns:
-        str: Результаты поиска в текстовом формате
+        str: Search results text
     """
     load_dotenv()
     os.environ["TALOR_API_KEY"] = os.getenv("TALOR_API_KEY")
@@ -26,7 +26,7 @@ def search_web(query: str, engine: str = "google") -> str:
                 "device": "desktop"
             }
         })
-        return str(result) if result else "Ничего не найдено."
+        return str(result) if result else "Nothing was found."
     except Exception as err:
-        print(f'Ошибка при поиске: {err}')
-        return f"ОШИБКА: {err}"
+        print(f'Searching error: {err}')
+        return f"ERROR: {err}"
