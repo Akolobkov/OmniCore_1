@@ -8,5 +8,5 @@ The web search tool uses Talordata api (api provider can be changed)
 Example tool (create_gradient_image) uses Pillow (for now, all externl dependencies for created tools must be installed maually)
 dotenv (for web search api key)
 <h2>How to use:</h2>
-Just run it! (No iterface exept console RN)
+Just run it! (No interface exept console RN)
 Example:
