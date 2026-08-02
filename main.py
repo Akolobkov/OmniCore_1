@@ -231,11 +231,12 @@ def run_agent(query):
 
     app = create_react_agent()
 
-    config = {"configurable": {"thread_id": f"tool creation"}}
+    config = {"configurable": {"thread_id": f"tool creation 1"}}
 
     try:
         result = app.invoke(
-                {"messages": [HumanMessage(content=   f"{query} + DO NOT FORGET TO LIST TOOLS! INCLUDE ALL THE TOOLS YOU USE!!! If you're not sure the folder you want to write something in exists, create it instead. If some tools fail, you should analyze AND rewrite them to accomplish user's task")]},
+                {"messages": [HumanMessage(content=   f"""{query} + DO NOT FORGET TO LIST TOOLS! INCLUDE ALL THE TOOLS YOU USE!!!  
+                ALWAYS complete user's request!""")]},
             config=config
         )
         print(f"Final answer: {result['messages'][-1].content}")
@@ -248,7 +249,7 @@ def run_agent(query):
         )
         print(f"Final answer: {result['messages'][-1].content}")
     print("=" * 60 + "\n")
-
+    return result['messages'][-1].content
 
 if __name__ == "__main__":
     query = input("Enter query: ")
