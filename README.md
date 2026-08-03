@@ -8,7 +8,7 @@ Langchain (python library) - agent framework
 
 The web search tool uses Talordata api (api provider can be changed)
 
-Example tool (create_gradient_image) uses Pillow (for now, all externl dependencies for created tools must be installed maually)
+Example tool (create_gradient_image) uses Pillow (for now, all external dependencies for created tools must be installed maually)
 
 dotenv (for web search api key)
 <h2>How to use:</h2>
