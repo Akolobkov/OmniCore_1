@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
-#example tool (created by the agent during testing)
+
+
+# example tool (created by the agent during testing)
 def create_gradient_image():
     """
-    Creates an 800x600 image with a blue-to-red gradient, draws the text "Omni_core" 
+    Creates an 800x600 image with a blue-to-red gradient, draws the text "Omni_core"
     in white at the center, and saves it as "gradient.png".
     """
     width = 800
     height = 600
-    
+
     # 1. Create the image canvas
     img = Image.new('RGB', (width, height))
     pixels = np.zeros((height, width, 3), dtype=np.uint8)
@@ -20,7 +22,7 @@ def create_gradient_image():
         for x in range(width):
             # Calculate interpolation factor based on x position
             ratio = x / width
-            
+
             # Interpolate from Blue (0, 0, 255) to Red (255, 0, 0)
             # R component: increases from 0 to 255
             r = int(255 * ratio)
@@ -28,7 +30,7 @@ def create_gradient_image():
             g = 0
             # B component: decreases from 255 to 0
             b = int(255 * (1 - ratio))
-            
+
             pixels[y, x] = [r, g, b]
 
     img = Image.fromarray(pixels)
@@ -51,7 +53,7 @@ def create_gradient_image():
         text_height = bbox[3] - bbox[1]
     except AttributeError:
         # Fallback for older PIL versions
-        text_width, text_height = img.getsize() # Placeholder size calculation if bounding box fails
+        text_width, text_height = img.getsize()  # Placeholder size calculation if bounding box fails
 
     x_center = (width - text_width) / 2
     y_center = (height - text_height) / 2
@@ -64,6 +66,7 @@ def create_gradient_image():
     output_filename = "gradient.png"
     img.save(output_filename)
     print(f"Successfully created and saved the gradient image to {output_filename}")
+
 
 if __name__ == "__main__":
     create_gradient_image()

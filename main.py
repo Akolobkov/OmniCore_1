@@ -10,6 +10,7 @@ from core_tools.include_tool import include_tool
 from core_tools.list_tools import list_tools
 from core_tools.search_web import search_web
 from core_tools.read_file import read_file
+from core_tools.check_and_manage_dependencies import check_and_manage_dependencies
 # ==============================================================================
 # 1. STATE SCHEMA
 # ==============================================================================
@@ -25,13 +26,14 @@ class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
 
 
+
 # ==============================================================================
 # 2. TOOLS
 # ==============================================================================
 # Tools are Python functions. The LLM reads their docstrings to understand
 # what they do and when to use them.
 
-tools = [write_to_file, create_file, include_tool, list_tools, search_web, read_file]
+tools = [write_to_file, create_file, include_tool, list_tools, search_web, read_file, check_and_manage_dependencies]
 
 # ==============================================================================
 # 3. NODES
@@ -65,7 +67,7 @@ def agent_node(state: AgentState) -> dict:
 
     STEP 0: ANALYZE THE TASK
     - Use 'search_web' first if the task requires external knowledge (e.g., current library versions, setup instructions).
-
+    IMPORTANT: When adding a tool wit external dependency, ALWAYS call check_and_manage_dependencies. It will install a dependency in case of its unexistence.
     STEP 1: INITIAL TOOL CHECK (BEST PRACTICE)
     - To ensure you know all capabilities, ALWAYS begin by calling 'list_tools()' to check the existing tool set.
 

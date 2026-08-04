@@ -4,4 +4,5 @@ from .include_tool import include_tool
 from .list_tools import list_tools
 from .search_web import search_web
 from .read_file import read_file
-__all__ = ['write_to_file', 'create_file', 'include_tool', 'list_tools', 'search_web', 'read_file']
+from .check_and_manage_dependencies import check_and_manage_dependencies
+__all__ = ['write_to_file', 'create_file', 'include_tool', 'list_tools', 'search_web', 'read_file', 'check_and_manage_dependencies']
