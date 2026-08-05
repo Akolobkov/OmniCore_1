@@ -19,7 +19,7 @@ Example:
 Let's assume we want some arts of beautiful Evelyn from Zenless Zone Zero. 
 We write a prompt:
 
-"Find a pinterest page with Evelyn arts from Zenless Zone Zero in the internet. Scrape all the images and save them into folder, then compress the folder into zip file. Important: in pinterest the images are loaded like: \<link rel="preload" as="image" imagesrcset="https://i.pinimg.com/236x/1d/9b/cf/1d9bcf98aae85776229edeea2047a0e7.jpg 1x, https://i.pinimg.com/474x/1d/9b/cf/1d9bcf98aae85776229edeea2047a0e7.jpg 2x, https://i.pinimg.com/originals/1d/9b/cf/1d9bcf98aae85776229edeea2047a0e7.jpg 4x" fetchpriority="auto">. You need the THIRD ONE since it has better quality. "
+"Find a pinterest page with Evelyn arts from Zenless Zone Zero in the internet. Scrape all the images and save them into folder, then compress the folder into zip file. Important: in pinterest the images are loaded like: \<link rel="preload" as="image" imagesrcset="https://i.pinimg.com/236x/1d/9b/cf/example1.jpg 1x, https://i.pinimg.com/474x/1d/9b/cf/example2.jpg 2x, https://i.pinimg.com/originals/1d/9b/example3.jpg 4x" fetchpriority="auto">. You need the THIRD ONE since it has better quality. "
 
 It's important to specify the possible bottlenecks in the tasks while usng my agent. But if the prompt is good enough, the magic begins:
 
