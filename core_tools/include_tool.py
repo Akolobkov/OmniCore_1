@@ -2,6 +2,7 @@ import importlib
 import os
 import sys
 import inspect
+from support_classes.tool_registry import registry
 def include_tool(tool_name: str) -> str:
     """Include a tool {tool_name} from "created_tools" directory
     IMPORTANT: DO NOT INCLUDE '.py' IN 'tool_name'!!!
@@ -41,17 +42,16 @@ def include_tool(tool_name: str) -> str:
         # Assuming the first function is the intended main tool for simplicity
         func_name, func = functions[0]
 
-        import __main__
 
-        existing_funcs = [t.__name__ for t in __main__.tools if hasattr(t, '__name__')]
+        existing_funcs = [t.__name__ for t in registry.list_tools() if hasattr(t, '__name__')]
         if func_name in existing_funcs:
             return f"INFO: Tool '{func_name}' is already included. No action taken."
 
         # WARNING: Modifying global state directly in the tool function is brittle
-        __main__.tools.append(func)
+        registry.register_tool(func)
 
         return (f"SUCCESS: Tool '{func_name}' from '{tool_name}.py' has been successfully imported and included. "
-                f"The system now recognizes {len(__main__.tools)} tools total.")
+                f"The system now recognizes {len(registry.list_tools())} tools total.")
 
     except Exception as e:
         # Catch any remaining unexpected exceptions during the process

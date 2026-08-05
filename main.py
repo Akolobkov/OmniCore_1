@@ -1,3 +1,4 @@
+import os
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.checkpoint.memory import MemorySaver
@@ -11,6 +12,8 @@ from core_tools.list_tools import list_tools
 from core_tools.search_web import search_web
 from core_tools.read_file import read_file
 from core_tools.check_and_manage_dependencies import check_and_manage_dependencies
+from support_classes.tool_registry import registry
+from dotenv import load_dotenv
 # ==============================================================================
 # 1. STATE SCHEMA
 # ==============================================================================
@@ -33,8 +36,13 @@ class AgentState(TypedDict):
 # Tools are Python functions. The LLM reads their docstrings to understand
 # what they do and when to use them.
 
-tools = [write_to_file, create_file, include_tool, list_tools, search_web, read_file, check_and_manage_dependencies]
-
+registry.register_tool(write_to_file)
+registry.register_tool(create_file)
+registry.register_tool(include_tool)
+registry.register_tool(list_tools)
+registry.register_tool(search_web)
+registry.register_tool(read_file)
+registry.register_tool(check_and_manage_dependencies)
 # ==============================================================================
 # 3. NODES
 # ==============================================================================
@@ -46,11 +54,12 @@ def agent_node(state: AgentState) -> dict:
     This is the "Reasoning" part of ReAct.
     """
     # Initialize LLM with Ollama (better tool calling support than LM Studio)
+    load_dotenv()
     llm = ChatOllama(
-        model="gemma4",  # Use whatever model you pulled
-        temperature=0
+        model=os.getenv("MODEL"),  # Use whatever model you pulled
+        temperature=os.getenv("TEMPERATURE")
     )
-    llm_with_tools = llm.bind_tools(tools)
+    llm_with_tools = llm.bind_tools(registry.list_tools())
 
     # Get the conversation history
     messages = state["messages"]
@@ -61,36 +70,35 @@ def agent_node(state: AgentState) -> dict:
         content="""You are a helpful and highly disciplined software development assistant. Your primary goal is to analyze user requests, determine the necessary tools (creation, inclusion, usage), and write functional code to fulfill the request completely.
 
     ==================================
-    ✨ MANDATORY WORKFLOW PROTOCOL - FOLLOW EXACLY ✨
+    ✨ MANDATORY WORKFLOW PROTOCOL - FOLLOW EXACTLY ✨
     ==================================
     This protocol dictates your steps for complex tasks:
 
     STEP 0: ANALYZE THE TASK
     - Use 'search_web' first if the task requires external knowledge (e.g., current library versions, setup instructions).
-    IMPORTANT: When adding a tool wit external dependency, ALWAYS call check_and_manage_dependencies. It will install a dependency in case of its unexistence.
+    IMPORTANT: When adding a tool with external dependency, ALWAYS call check_and_manage_dependencies. It will install a dependency in case of its unexistence.
     STEP 1: INITIAL TOOL CHECK (BEST PRACTICE)
     - To ensure you know all capabilities, ALWAYS begin by calling 'list_tools()' to check the existing tool set.
-
+    IMPORTANT! Include all the tools you got on this step using 'include_tool' if you need them! This is !!!MANDATORY!!!
     STEP 2: CREATE FILES (If needed)
     - If a new tool is required, use 'create_file' in the designated 'created_tools' directory.
-    - The file name MUST match the function name of the tool you want to create.
+    - The file name MUST match the function name of the tool you want to create. (!!! MANDATORY !!!)
     - Do not try to create one tool twice! Use write_to_file instead.
     - Include the complete and accurate docstring detailing ALL arguments and functionality.
     - IMPORTANT: You can import existing tools into other tools using 'import created_tools/{tool_name}'!
     - IMPORTANT: ALL TOOLS MUST BE CREATED IN CREATED_TOOLS DIRECTORY!!!
-    Example: 'created_tools/tool.py' - RIGHT, 'tool.py' - WRONG
+    Example: 'created_tools/tool.py' - RIGHT, 'tool.py' - WRONG (!!! MANDATORY !!!)
     - CRITICAL: USE CORRECT FORMATS WHEN WRITING A TOOL! Example: 
     n: The non-negative integer for which to calculate the factorial. - RIGHT
     n (int): The non-negative integer for which to calculate the factorial. - WRONG!
 
     STEP 3: INCLUDE TOOL (CRITICAL - DO NOT SKIP!)
-    - After SUCCESSFULLY executing a 'create_file', OR when you intend to use any tool (existing or newly created), calling 'include_tool' is **MANDATORY**.
-    - You must call 'include_tool' for *every* single piece of functionality you want the system to be aware of. If you create 3 tools, you MUST execute 'include_tool' three times before proceeding.
+    - After SUCCESSFULLY executing a 'create_file', OR when you intend to use any tool (existing or newly created), calling 'include_tool' is !!! MANDATORY !!!.
+    - You must call 'include_tool' for *every* single piece of functionality you want the system to be aware of. If you create 3 tools, you MUST execute 'include_tool' three times before proceeding. THIS IS !!!MANDATORY!!!
 
     STEP 4: EXECUTE THE TASK
     - Now that all necessary tools are available, use them in sequence to complete the task fully.
     - You can and should use multiple tools (creation, web search, execution) to achieve the final result.
-    - If some tools fail, you should analyze AND rewrite them to accomplish user's task
     ==================================
     📜 GENERAL OPERATIONAL RULES 📜
     -----------------------------
@@ -121,45 +129,67 @@ def tool_node(state: AgentState) -> dict:
     This is the "Acting" part of ReAct.
     """
     from langchain_core.messages import ToolMessage
-    import __main__
-
+    import concurrent.futures
     messages = state["messages"]
     last_message = messages[-1]
 
     # Execute each tool call
     tool_results = []
+    tasks = []
     for tool_call in last_message.tool_calls:
         tool_name = tool_call["name"]
         tool_args = tool_call["args"]
+        tasks.append((tool_name, tool_args, tool_call))
 
+    def execute_tool(tool_name, tool_args, tool_call):
         coerced_args = tool_args
-
-        # Find and execute the tool
         tool_func = None
+        result = None
 
-        # First check in main.tools (which includes dynamically added tools)
-        if hasattr(__main__, 'tools'):
-            for t in __main__.tools:
-                if hasattr(t, '__name__') and t.__name__ == tool_name:
-                    tool_func = t
-                    break
+        # Find the actual function object
+        for t in registry.list_tools():
+            if hasattr(t, '__name__') and t.__name__ == tool_name:
+                tool_func = t
+                break
         try:
-            result = tool_func(**coerced_args)
+            if callable(tool_func):
+                result = tool_func(**coerced_args)
+            else:
+                print(f"[TOOL ERROR] Tool '{tool_name}' function not found or is not callable.")
+                return f"ERROR: The requested tool '{tool_name}' could not be executed because it was not defined or properly included in the system's accessible functions. Details: Check tool name and ensure inclusion steps are followed."
+
         except TypeError as e:
-            print(f"[TOOL ERROR] Could not execute {tool_name}. Missing required arguments or incorrect types. Error: {e}")
-            # Return a failure message instead of crashing
-            result = f"ERROR: Tool execution failed due to missing or incorrect argument(s). Details: {str(e)}. Try to call the tool in different way or rewrite it"
+            print(
+                f"[TOOL ERROR] Could not execute {tool_name}. Missing required arguments or incorrect types. Error: {e}")
+            return f"ERROR: Tool execution failed due to missing or incorrect argument(s). Details: {str(e)}. Try to call the tool in different way or rewrite it"
 
+        except Exception as e:
+            print(f"[TOOL CRASH] An unexpected error occurred during execution of {tool_name}. Error: {e}")
+            # Catch any other exceptions for robustness
+            return f"ERROR: Tool '{tool_name}' crashed due to an unhandled exception. Details: {type(e).__name__}: {str(e)}"
 
-        print(f"[TOOL] {tool_name}({coerced_args}) = {result}")
+        finally:
+            print(f"[TOOL] {tool_name}({coerced_args}) = {result}")
 
-        # Create a ToolMessage with the result
-        tool_results.append(
-            ToolMessage(
-                content=str(result),
-                tool_call_id=tool_call["id"]
-            )
+        # Create and return the ToolMessage
+        return ToolMessage(
+            content=str(result),
+            tool_call_id=tool_call["id"]
         )
+
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+
+        future_to_task = {executor.submit(execute_tool, name, args, call): (name, args) for name, args, call in
+                              tasks}
+        for future in concurrent.futures.as_completed(future_to_task):
+            try:
+                # The result here is the ToolMessage object returned by execute_tool
+                result_message = future.result()
+                tool_results.append(result_message)
+            except Exception as e:
+                print(f"[THREAD EXCEPTION] A critical failure occurred while retrieving results: {e}")
+                # If the thread itself fails to complete, we handle it gracefully here
+                pass
 
     return {"messages": tool_results}
 
@@ -233,23 +263,26 @@ def run_agent(query):
 
     app = create_react_agent()
 
-    config = {"configurable": {"thread_id": f"tool creation 1"}}
-
+    config = {"configurable": {"thread_id": f"tool creation {hash(query)}"}}
+    attempt = 0
     try:
         result = app.invoke(
-                {"messages": [HumanMessage(content=   f"""{query} + DO NOT FORGET TO LIST TOOLS! INCLUDE ALL THE TOOLS YOU USE!!!  
-                ALWAYS complete user's request!""")]},
+                {"messages": [HumanMessage(content= query)]},
             config=config
         )
         print(f"Final answer: {result['messages'][-1].content}")
     except Exception as e:
+        attempt+=1
         print(f"ERROR in task: {e}")
-        result = app.invoke(
+        if attempt <= 3:
+            result = app.invoke(
             {"messages": [HumanMessage(
-                content=f"Caught an error {e} while completing {query}. Analyze the problem and finish the task")]},
-            config=config
-        )
-        print(f"Final answer: {result['messages'][-1].content}")
+                    content=f"Caught an error {e} while completing {query}. Analyze the problem and finish the task")]},
+                config=config
+            )
+            print(f"Final answer: {result['messages'][-1].content}")
+        else:
+            print(f"Caught an error {e} while completing {query} and exceeded the amount of retries.")
     print("=" * 60 + "\n")
     return result['messages'][-1].content
 

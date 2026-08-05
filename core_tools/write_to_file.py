@@ -1,8 +1,7 @@
 def write_to_file(text: str, filename: str) -> str:
     f"""write into EXISTING file {filename} any text or code
     Note: This function uses write mode ('w'), meaning it will OVERWRITE 
-    any existing content in the specified file. Use 'a' for append mode 
-    if continuous logging is required.
+    any existing content in the specified file.
     Args:
         text: text
         filename: filename to write to

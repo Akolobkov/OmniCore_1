@@ -14,12 +14,10 @@ def check_and_manage_dependencies(required_libraries: str) -> str:
     Returns:
         str: Message about installation of missing libraries.
     """
-    print("--- Dependency Manager Activated ---")
     try:
         libraries = [lib.strip() for lib in required_libraries.split(',')]
     except Exception:
         return "Error: Please provide a comma-separated list of libraries."
-    print(libraries)
     missing_libs = []
     print(f"Checking dependency availability for: {', '.join(libraries)}...")
 
@@ -51,4 +49,4 @@ def check_and_manage_dependencies(required_libraries: str) -> str:
                 ['pip', 'install', lib])
         return f"{lib} was installed using pip succesfully"
     else:
-        return "\nAll specified dependencies are installed and available. The code should run without ImportError.\n"
+        return "\nAll specified dependencies are installed and available.\n"
